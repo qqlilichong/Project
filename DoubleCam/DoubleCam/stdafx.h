@@ -26,3 +26,7 @@
 #include <WSL/WSL2_D3D9.h>
 #include <WSL/WSL2_DSound.h>
 #include <WSL/WSL2_FFmpeg.h>
+#include <WSL/WSL2_D3D9.h>
+
+#define	D3DFMT_NV12		(D3DFORMAT)MAKEFOURCC( 'N', 'V', '1', '2' )
+#define	D3DFMT_YV12		(D3DFORMAT)MAKEFOURCC( 'Y', 'V', '1', '2' )
