@@ -44,6 +44,9 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 		RECT rcViewA = { 0, 0, pad_width, pad_height / 2 } ;
 		RECT rcViewB = { 0, pad_height / 2, pad_width, pad_height } ;
+
+		HWND hViewA = (HWND)0x002A0310 ;
+		HWND hViewB = (HWND)0x002204F2 ;
 		
 		Cw2D3D9 d3d9 ;
 		Cw2D3D9Device d3dev ;
@@ -56,21 +59,21 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 		Cw2DrawWnd dw1 ;
 		dw1.AddSink( &pad ) ;
-		if ( dw1.Init( (HWND)0x002A0310, rcViewA, &d3dev ) != 0 )
+		if ( dw1.Init( hViewA, rcViewA, &d3dev ) != 0 )
 		{
-			return -1 ;
+			return 0 ;
 		}
 
 		Cw2DrawWnd dw2 ;
 		dw2.AddSink( &pad ) ;
-		if ( dw2.Init( (HWND)0x002204F2, rcViewB, &d3dev ) != 0 )
+		if ( dw2.Init( hViewB, rcViewB, &d3dev ) != 0 )
 		{
-			return -1 ;
+			return 0 ;
 		}
 
 		Cw2OpenCam cam1 ;
 		cam1.AddSink( &dw1 ) ;
-		if ( cam1.OpenCam( "Vega USB 2.0 Camera.", video_width, video_height ) == 0 )
+		if ( cam1.OpenCam( "@device_pnp_\\\\?\\usb#vid_0ac8&pid_332d&mi_00#7&3a816f4f&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global", video_width, video_height ) == 0 )
 		{
 			pad.AddViewRect( rcViewA ) ;
 		}
@@ -84,16 +87,24 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 		system("pause");
 
-		Cw2FileEncoder file_encoder ;
-		if ( file_encoder.Init( output_file, pad_width, pad_height ) == 0 )
+		shared_ptr< Cw2FileEncoder > file_encoder_ptr ;
+
+		if ( !file_encoder_ptr )
 		{
-			pad.AddSink( &file_encoder ) ;
+			file_encoder_ptr.reset( new Cw2FileEncoder ) ;
+			if ( file_encoder_ptr->Init( output_file, pad_width, pad_height ) == 0 )
+			{
+				pad.AddSink( &(*file_encoder_ptr) ) ;
+			}
 		}
 
 		system("pause");
 
-		pad.RemoveSink( &file_encoder ) ;
-		file_encoder.Uninit() ;
+		{
+			pad.RemoveSink( &(*file_encoder_ptr) ) ;
+			file_encoder_ptr->Uninit() ;
+			file_encoder_ptr.reset() ;
+		}
 
 		system("pause");
 

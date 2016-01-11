@@ -28,6 +28,5 @@
 #include <WSL/WSL2_D3D9.h>
 #include <WSL/WSL2_DSound.h>
 #include <WSL/WSL2_FFmpeg.h>
-#include <WSL/WSL2_D3D9.h>
 
 //////////////////////////////////////////////////////////////////////////
