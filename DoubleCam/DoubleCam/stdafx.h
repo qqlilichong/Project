@@ -12,6 +12,8 @@
 
 // TODO: 在此处引用程序需要的其他头文件
 
+//////////////////////////////////////////////////////////////////////////
+
 #include <WSL/WSL_Dialog.h>
 #include <WSL/WSL_Render.h>
 
@@ -28,5 +30,4 @@
 #include <WSL/WSL2_FFmpeg.h>
 #include <WSL/WSL2_D3D9.h>
 
-#define	D3DFMT_NV12		(D3DFORMAT)MAKEFOURCC( 'N', 'V', '1', '2' )
-#define	D3DFMT_YV12		(D3DFORMAT)MAKEFOURCC( 'Y', 'V', '1', '2' )
+//////////////////////////////////////////////////////////////////////////
