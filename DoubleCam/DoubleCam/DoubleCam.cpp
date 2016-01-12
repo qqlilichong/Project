@@ -5,35 +5,56 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-// int decode_video_packet( Cw2FFmpegAVCodecContextOpen& vdecoder_cam, Cw2FFmpegAVFrame& frame_video_cam, AVPacket& pkt, int& got_frame )
-// {
-// 
-// 		
-// 	int decoded = pkt.size ;
-// 	auto video_stream_index = (int)vdecoder_cam->opaque ;
-// 
-// 	if ( video_stream_index == pkt.stream_index )
-// 	{
-// 		auto ret = avcodec_decode_video2( vdecoder_cam, frame_video_cam, &got_frame, &pkt ) ;
-// 		if ( ret < 0 )
-// 		{
-// 			return ret ;
-// 		}
-// 
-// 		if ( got_frame )
-// 		{
-// 
-// 		}
-// 	}
-// 
-// 	return decoded ;
-// }
+int decode_video_packet( Cw2FFmpegAVCodecContextOpen& vdecoder_cam,
+						Cw2FFmpegAVFrame& frame_video_cam,
+
+						Cw2FFmpegAVCodecContextOpen& vdecoder_audio,
+						Cw2FFmpegAVFrame& frame_audio,
+						
+						AVPacket& pkt, int& got_frame )
+{
+	int decoded = pkt.size ;
+	auto video_stream_index = (int)vdecoder_cam->opaque ;
+	auto audio_stream_index = (int)vdecoder_audio->opaque ;
+
+	if ( video_stream_index == pkt.stream_index )
+	{
+		auto ret = avcodec_decode_video2( vdecoder_cam, frame_video_cam, &got_frame, &pkt ) ;
+		if ( ret < 0 )
+		{
+			return ret ;
+		}
+	}
+	
+	else if ( audio_stream_index == pkt.stream_index )
+	{
+		auto ret = avcodec_decode_audio4( vdecoder_audio, frame_audio, &got_frame, &pkt ) ;
+		if ( ret < 0 )
+		{
+			return ret ;
+		}
+		
+		decoded = FFMIN( ret, pkt.size ) ;
+	}
+
+	return decoded ;
+}
+
+static char *dup_wchar_to_utf8(wchar_t *w)
+{
+	char *s = NULL;
+	int l = WideCharToMultiByte(CP_UTF8, 0, w, -1, 0, 0, 0, 0);
+	s = (char *) av_malloc(l);
+	if (s)
+		WideCharToMultiByte(CP_UTF8, 0, w, -1, s, l, 0, 0);
+	return s;
+}
 
 int _tmain( int argc, _TCHAR* argv[] )
 {
 	WSL2_FFmpegInit() ;
 
-	if ( true )
+	if ( false )
 	{
 		const char* output_file = "test.mp4" ;
 		const int video_width = 640 ;
@@ -73,6 +94,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 		Cw2OpenCam cam1 ;
 		cam1.AddSink( &dw1 ) ;
+//		if ( cam1.OpenCam( "audio=麦克风 (Realtek High Definition Au", video_width, video_height ) == 0 )
 		if ( cam1.OpenCam( "@device_pnp_\\\\?\\usb#vid_0ac8&pid_332d&mi_00#7&3a816f4f&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global", video_width, video_height ) == 0 )
 		{
 			pad.AddViewRect( rcViewA ) ;
@@ -114,7 +136,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 		return 0 ;
 	}
 
-	/*
+
 	HWND wnd_cam1 = (HWND)0x000602C6 ;
 	const char* output = "test.mp4" ;
 
@@ -135,11 +157,16 @@ int _tmain( int argc, _TCHAR* argv[] )
 		}
 		
 		Cw2FFmpegAVDictionary options ;
-		av_dict_set( options, "video_size", "640x480", 0 ) ;
+		//av_dict_set( options, "video_size", "640x480", 0 ) ;
 		//av_dict_set( options, "framerate", "30", 0 ) ;
-		av_dict_set( options, "pixel_format", "yuyv422", 0 ) ;
-		if ( avformat_open_input( av_format_cam1, "video=Vega USB 2.0 Camera.", if_dshow_ptr, nullptr ) != 0 )
+		//av_dict_set( options, "pixel_format", "yuyv422", 0 ) ;
+		
+		char* audio_id = dup_wchar_to_utf8( L"video=@device_pnp_\\\\?\\usb#vid_0ac8&pid_332d&mi_00#7&3a816f4f&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global"
+			L":audio=麦克风 (Realtek High Definition Au" ) ;
+		
+		if ( avformat_open_input( av_format_cam1, audio_id, if_dshow_ptr, nullptr ) != 0 )
 		{
+			
 			throw -1 ;
 		}
 		
@@ -149,16 +176,29 @@ int _tmain( int argc, _TCHAR* argv[] )
 		}
 		
 		Cw2FFmpegAVCodecContextOpen decoder_cam1 ;
+		Cw2FFmpegAVCodecContextOpen decoder_audio ;
 		for ( decltype( av_format_cam1->nb_streams ) i = 0 ; i < av_format_cam1->nb_streams ; ++i )
 		{
 			if ( av_format_cam1->streams[ i ]->codec->codec_type == AVMEDIA_TYPE_VIDEO )
 			{
-				decoder_cam1 = av_format_cam1->streams[ i ]->codec ;
-				break ;
+				if ( decoder_cam1.InvalidHandle() )
+				{
+					decoder_cam1 = av_format_cam1->streams[ i ]->codec ;
+					decoder_cam1->opaque = (void*)i ;
+				}
+			}
+
+			else if ( av_format_cam1->streams[ i ]->codec->codec_type == AVMEDIA_TYPE_AUDIO )
+			{
+				if ( decoder_audio.InvalidHandle() )
+				{
+					decoder_audio = av_format_cam1->streams[ i ]->codec ;
+					decoder_audio->opaque = (void*)i ;
+				}
 			}
 		}
 
-		if ( decoder_cam1.InvalidHandle() )
+		if ( decoder_cam1.InvalidHandle() || decoder_audio.InvalidHandle() )
 		{
 			throw -1 ;
 		}
@@ -167,6 +207,13 @@ int _tmain( int argc, _TCHAR* argv[] )
 		{
 			throw -1 ;
 		}
+
+		if ( avcodec_open2( decoder_audio, avcodec_find_decoder( decoder_audio->codec_id ), nullptr ) != 0 )
+		{
+			throw -1 ;
+		}
+
+		Cw2FFmpegAVFrame frame_audio = av_frame_alloc() ;
 
 		auto cam1_avctx_tb = decoder_cam1->time_base ;
 		auto cam1_stream_tb = av_format_cam1->streams[ 0 ]->time_base ;
@@ -215,8 +262,8 @@ int _tmain( int argc, _TCHAR* argv[] )
 		encoder_video->pix_fmt = sws_cam1.m_dst.pix_fmt ;
 		encoder_video->width = sws_cam1.m_dst.width ;
 		encoder_video->height = sws_cam1.m_dst.height ;
-		encoder_video->time_base.den = 1 ;
-		encoder_video->time_base.num = 30 ;
+		encoder_video->time_base.den = 30 ;
+		encoder_video->time_base.num = 1 ;
 		encoder_video->bit_rate = 900000 ;
 		encoder_video->gop_size = 12 ;
 		encoder_video->me_range = 16 ;
@@ -262,66 +309,60 @@ int _tmain( int argc, _TCHAR* argv[] )
 		{
 			AVPacket orig_pkt = pkt ;
 
-			//W2DBG( L"enc : %f, %d", tw.TickNow(), pts++ ) ;
-
 			do
 			{
+				auto video_stream_index = (int)decoder_cam1->opaque ;
+				auto audio_stream_index = (int)decoder_audio->opaque ;
 				int got_frame = 0 ;
-				auto ret = decode_video_packet( decoder_cam1, frame_video_cam1, pkt, got_frame ) ;
+				auto ret = decode_video_packet(
+					decoder_cam1,
+					frame_video_cam1,
+					decoder_audio,
+					frame_audio,
+					pkt, got_frame ) ;
 				if ( ret < 0 )
 				{
 					break ;
 				}
 
-				if ( got_frame )
-				{
-
-					if ( sws_cam1.Scale( frame_video_cam1->data, frame_video_cam1->linesize,
-						frame_video_yuv_cam1.pic.data, frame_video_yuv_cam1.pic.linesize ) )
-					{
-						//RenderCam1( wnd_cam1, render_cam1, surface_cam1, frame_video_yuv_cam1.pic ) ;
-
-						if ( true )
-						{
-							AVPacket enc_pkt ;
-							av_init_packet( &enc_pkt ) ;
-							enc_pkt.data = nullptr ;
-							enc_pkt.size = 0 ;
-
-							AVFrame enc_frame = { 0 } ;
-							enc_frame.format = frame_video_yuv_cam1.ctx.pix_fmt ;
-							enc_frame.width = frame_video_yuv_cam1.ctx.width ;
-							enc_frame.height = frame_video_yuv_cam1.ctx.height ;
-							enc_frame.data[ 0 ] = frame_video_yuv_cam1.pic.data[ 0 ] ;
-							enc_frame.data[ 1 ] = frame_video_yuv_cam1.pic.data[ 1 ] ;
-							enc_frame.data[ 2 ] = frame_video_yuv_cam1.pic.data[ 2 ] ;
-							enc_frame.linesize[ 0 ] = frame_video_yuv_cam1.pic.linesize[ 0 ] ;
-							enc_frame.linesize[ 1 ] = frame_video_yuv_cam1.pic.linesize[ 1 ] ;
-							enc_frame.linesize[ 2 ] = frame_video_yuv_cam1.pic.linesize[ 2 ] ;
-							
-							//enc_frame.pts = tw.TickNow() / av_q2d( video_stream->time_base ) ;
-							//enc_frame.pts = av_rescale_q( enc_frame.pts, encoder_video->time_base, video_stream->time_base ) ;
-								
-							//frame_video_cam1->pkt_pts ;
-// 							av_rescale_q( pts++, encoder_video->time_base, video_stream->time_base ) ;
+// 				if ( got_frame )
+// 				{
+// 					if ( sws_cam1.Scale( frame_video_cam1->data, frame_video_cam1->linesize,
+// 						frame_video_yuv_cam1.pic.data, frame_video_yuv_cam1.pic.linesize ) )
+// 					{
+// 						RenderCam1( wnd_cam1, render_cam1, surface_cam1, frame_video_yuv_cam1.pic ) ;
 // 
-// 							auto dd = frame_video_cam1->pkt_pts * av_q2d( cam1_stream_tb ) ;
-// 							W2DBG( L"timestamp : %.2f", dd ) ;
+// 						if ( true )
+// 						{
+// 							AVPacket enc_pkt ;
+// 							av_init_packet( &enc_pkt ) ;
+// 							enc_pkt.data = nullptr ;
+// 							enc_pkt.size = 0 ;
 // 
-// 							av_rescale_q
-							
-							int enc_ok = 0 ;
-							avcodec_encode_video2( encoder_video, &enc_pkt, &enc_frame, &enc_ok ) ;
-							if ( enc_ok )
-							{
-								enc_pkt.stream_index = video_stream->index ;
-								io_file.WritePacket( enc_pkt ) ;
-							}
-							
-							av_free_packet( &enc_pkt ) ;
-						}
-					}
-				}
+// 							AVFrame enc_frame = { 0 } ;
+// 							enc_frame.format = frame_video_yuv_cam1.ctx.pix_fmt ;
+// 							enc_frame.width = frame_video_yuv_cam1.ctx.width ;
+// 							enc_frame.height = frame_video_yuv_cam1.ctx.height ;
+// 							enc_frame.data[ 0 ] = frame_video_yuv_cam1.pic.data[ 0 ] ;
+// 							enc_frame.data[ 1 ] = frame_video_yuv_cam1.pic.data[ 1 ] ;
+// 							enc_frame.data[ 2 ] = frame_video_yuv_cam1.pic.data[ 2 ] ;
+// 							enc_frame.linesize[ 0 ] = frame_video_yuv_cam1.pic.linesize[ 0 ] ;
+// 							enc_frame.linesize[ 1 ] = frame_video_yuv_cam1.pic.linesize[ 1 ] ;
+// 							enc_frame.linesize[ 2 ] = frame_video_yuv_cam1.pic.linesize[ 2 ] ;
+// 							enc_frame.pts = 0 ;
+// 							
+// 							int enc_ok = 0 ;
+// 							avcodec_encode_video2( encoder_video, &enc_pkt, &enc_frame, &enc_ok ) ;
+// 							if ( enc_ok )
+// 							{
+// 								enc_pkt.stream_index = video_stream->index ;
+// 								io_file.WritePacket( enc_pkt ) ;
+// 							}
+// 							
+// 							av_free_packet( &enc_pkt ) ;
+// 						}
+// 					}
+// 				}
 
 				pkt.data += ret ;
 				pkt.size -= ret ;
@@ -332,7 +373,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 			if ( tw.TickNow() > 20.0f )
 			{
-				break ;
+				//break ;
 			}
 		}
 		
@@ -347,7 +388,6 @@ int _tmain( int argc, _TCHAR* argv[] )
 	avformat_close_input( av_format_cam1 ) ;
 	avformat_close_input( av_format_cam2 ) ;
 	return 0 ;
-	*/
 }
 
 //////////////////////////////////////////////////////////////////////////
