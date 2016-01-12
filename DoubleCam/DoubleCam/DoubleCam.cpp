@@ -14,19 +14,19 @@ int decode_video_packet( Cw2FFmpegAVCodecContextOpen& vdecoder_cam,
 						AVPacket& pkt, int& got_frame )
 {
 	int decoded = pkt.size ;
-	auto video_stream_index = (int)vdecoder_cam->opaque ;
+	//auto video_stream_index = (int)vdecoder_cam->opaque ;
 	auto audio_stream_index = (int)vdecoder_audio->opaque ;
 
-	if ( video_stream_index == pkt.stream_index )
-	{
-		auto ret = avcodec_decode_video2( vdecoder_cam, frame_video_cam, &got_frame, &pkt ) ;
-		if ( ret < 0 )
-		{
-			return ret ;
-		}
-	}
+// 	if ( video_stream_index == pkt.stream_index )
+// 	{
+// 		auto ret = avcodec_decode_video2( vdecoder_cam, frame_video_cam, &got_frame, &pkt ) ;
+// 		if ( ret < 0 )
+// 		{
+// 			return ret ;
+// 		}
+// 	}
 	
-	else if ( audio_stream_index == pkt.stream_index )
+	if ( audio_stream_index == pkt.stream_index )
 	{
 		auto ret = avcodec_decode_audio4( vdecoder_audio, frame_audio, &got_frame, &pkt ) ;
 		if ( ret < 0 )
@@ -138,7 +138,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 
 	HWND wnd_cam1 = (HWND)0x000602C6 ;
-	const char* output = "test.mp4" ;
+	const char* output = "test.aac" ;
 
 	Cw2FFmpegAVFormatContext av_format_cam1 = avformat_alloc_context() ;
 	Cw2FFmpegAVFormatContext av_format_cam2 = avformat_alloc_context() ;
@@ -161,8 +161,10 @@ int _tmain( int argc, _TCHAR* argv[] )
 		//av_dict_set( options, "framerate", "30", 0 ) ;
 		//av_dict_set( options, "pixel_format", "yuyv422", 0 ) ;
 		
-		char* audio_id = dup_wchar_to_utf8( L"video=@device_pnp_\\\\?\\usb#vid_0ac8&pid_332d&mi_00#7&3a816f4f&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global"
-			L":audio=麦克风 (Realtek High Definition Au" ) ;
+// 		char* audio_id = dup_wchar_to_utf8( L"video=@device_pnp_\\\\?\\usb#vid_0ac8&pid_332d&mi_00#7&3a816f4f&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global"
+// 			L":audio=麦克风 (Realtek High Definition Au" ) ;
+
+		char* audio_id = dup_wchar_to_utf8( L"audio=FrontMic (Realtek High Definition Audio)" ) ;
 		
 		if ( avformat_open_input( av_format_cam1, audio_id, if_dshow_ptr, nullptr ) != 0 )
 		{
@@ -198,96 +200,131 @@ int _tmain( int argc, _TCHAR* argv[] )
 			}
 		}
 
-		if ( decoder_cam1.InvalidHandle() || decoder_audio.InvalidHandle() )
-		{
-			throw -1 ;
-		}
-		
-		if ( avcodec_open2( decoder_cam1, avcodec_find_decoder( decoder_cam1->codec_id ), nullptr ) != 0 )
-		{
-			throw -1 ;
-		}
+// 		if ( decoder_cam1.InvalidHandle() || decoder_audio.InvalidHandle() )
+// 		{
+// 			throw -1 ;
+// 		}
+// 		
+// 		if ( avcodec_open2( decoder_cam1, avcodec_find_decoder( decoder_cam1->codec_id ), nullptr ) != 0 )
+// 		{
+// 			throw -1 ;
+// 		}
 
 		if ( avcodec_open2( decoder_audio, avcodec_find_decoder( decoder_audio->codec_id ), nullptr ) != 0 )
 		{
 			throw -1 ;
 		}
 
-		Cw2FFmpegAVFrame frame_audio = av_frame_alloc() ;
-
-		auto cam1_avctx_tb = decoder_cam1->time_base ;
-		auto cam1_stream_tb = av_format_cam1->streams[ 0 ]->time_base ;
-
-		Cw2FFmpegSws sws_cam1 ;
-		if ( !sws_cam1.Init( decoder_cam1->pix_fmt, AV_PIX_FMT_YUV420P, decoder_cam1->coded_width, decoder_cam1->coded_height ) )
-		{
-			throw -1 ;
-		}
-		
+// 		auto cam1_avctx_tb = decoder_cam1->time_base ;
+// 		auto cam1_stream_tb = av_format_cam1->streams[ 0 ]->time_base ;
+// 
+// 		Cw2FFmpegSws sws_cam1 ;
+// 		if ( !sws_cam1.Init( decoder_cam1->pix_fmt, AV_PIX_FMT_YUV420P, decoder_cam1->coded_width, decoder_cam1->coded_height ) )
+// 		{
+// 			throw -1 ;
+// 		}
+// 		
 		Cw2FFmpegPictureFrame frame_video_yuv_cam1 ;
-		frame_video_yuv_cam1.Init( sws_cam1.m_dst.pix_fmt, sws_cam1.m_dst.width, sws_cam1.m_dst.height ) ;
+// 		frame_video_yuv_cam1.Init( sws_cam1.m_dst.pix_fmt, sws_cam1.m_dst.width, sws_cam1.m_dst.height ) ;
 		Cw2FFmpegAVFrame frame_video_cam1 = av_frame_alloc() ;
-		
-		CwRenderDirectDraw render_cam1 ;
-		if ( !render_cam1.InitMediaRender( wnd_cam1, NULL ) )
-		{
-			throw -1 ;
-		}
-		
-		CwSurfaceDirectDraw surface_cam1 ;
-		if ( surface_cam1.InitSurface( sws_cam1.m_dst.width, sws_cam1.m_dst.height, 8,
-			IMediaSurface::MSRS_TYPE_YV12, &render_cam1 ) != 0 )
-		{
-			throw -1 ;
-		}
+// 		
+// 		CwRenderDirectDraw render_cam1 ;
+// 		if ( !render_cam1.InitMediaRender( wnd_cam1, NULL ) )
+// 		{
+// 			throw -1 ;
+// 		}
+// 		
+// 		CwSurfaceDirectDraw surface_cam1 ;
+// 		if ( surface_cam1.InitSurface( sws_cam1.m_dst.width, sws_cam1.m_dst.height, 8,
+// 			IMediaSurface::MSRS_TYPE_YV12, &render_cam1 ) != 0 )
+// 		{
+// 			throw -1 ;
+// 		}
 
 		//////////////////////////////////////////////////////////////////////////
 
-		Cw2FFmpegAVFormatContext av_format_file = avformat_alloc_context() ;
-		av_format_file->oformat = av_guess_format( nullptr, output, nullptr ) ;
+ 		Cw2FFmpegAVFormatContext av_format_file = avformat_alloc_context() ;
+ 		av_format_file->oformat = av_guess_format( nullptr, output, nullptr ) ;
 		if ( av_format_file->oformat == nullptr )
-		{
+ 		{
 			throw -1 ;
-		}
+ 		}
 
-		auto video_stream = avformat_new_stream( av_format_file, 0 ) ;
-		if ( video_stream == nullptr )
+		auto audio_stream = avformat_new_stream( av_format_file, 0 ) ;
+		if ( audio_stream == nullptr )
 		{
 			throw -1 ;
 		}
 		
-		Cw2FFmpegAVCodecContextOpen encoder_video = video_stream->codec ;
-		encoder_video->codec_id = AV_CODEC_ID_H264 ;
-		encoder_video->codec_type = AVMEDIA_TYPE_VIDEO ;
-		encoder_video->pix_fmt = sws_cam1.m_dst.pix_fmt ;
-		encoder_video->width = sws_cam1.m_dst.width ;
-		encoder_video->height = sws_cam1.m_dst.height ;
-		encoder_video->time_base.den = 30 ;
-		encoder_video->time_base.num = 1 ;
-		encoder_video->bit_rate = 900000 ;
-		encoder_video->gop_size = 12 ;
-		encoder_video->me_range = 16 ;
-		encoder_video->max_qdiff = 4 ;
-		encoder_video->qcompress = 0.6f ;
-		encoder_video->qmin = 10 ;
-		encoder_video->qmax = 51 ;
-		encoder_video->max_b_frames = 3 ;
-		encoder_video->flags |= CODEC_FLAG_GLOBAL_HEADER ;
-
-		video_stream->time_base.den = 30 ;
-		video_stream->time_base.num = 1 ;
-		
-		Cw2FFmpegAVDictionary enc_options ;
-		if ( encoder_video->codec_id == AV_CODEC_ID_H264 )
-		{
-			av_dict_set( enc_options, "preset", "ultrafast", 0 ) ;
-			av_dict_set( enc_options, "tune", "zerolatency", 0 ) ;
-		}
-
-		if ( avcodec_open2( encoder_video, avcodec_find_encoder( encoder_video->codec_id ), enc_options ) != 0 )
+		Cw2FFmpegAVCodecContextOpen encoder_audio = audio_stream->codec ;
+		encoder_audio->codec_id = AV_CODEC_ID_AAC ;
+		encoder_audio->codec_type = AVMEDIA_TYPE_AUDIO ;
+		encoder_audio->sample_fmt = decoder_audio->sample_fmt ;
+		encoder_audio->sample_rate = decoder_audio->sample_rate ;
+		encoder_audio->channels = decoder_audio->channels ;
+		encoder_audio->channel_layout = av_get_default_channel_layout( encoder_audio->channels ) ;
+		encoder_audio->bit_rate = 64000 ;
+		encoder_audio->time_base = decoder_audio->time_base ;
+		if ( avcodec_open2( encoder_audio, avcodec_find_encoder( encoder_audio->codec_id ), nullptr ) != 0 )
 		{
 			throw -1 ;
 		}
+		
+		Cw2FFmpegAVFrame frame_audio = av_frame_alloc() ;
+      
+//     size = av_samples_get_buffer_size(NULL, pCodecCtx->channels,pCodecCtx->frame_size,pCodecCtx->sample_fmt, 1);  
+//     frame_buf = (uint8_t *)av_malloc(size);  
+//     avcodec_fill_audio_frame(pFrame, pCodecCtx->channels, pCodecCtx->sample_fmt,(const uint8_t*)frame_buf, size, 1); 
+
+// 
+// 		pCodecCtx->codec_id = fmt->audio_codec;  
+// 		pCodecCtx->codec_type = AVMEDIA_TYPE_AUDIO;  
+//     pCodecCtx->sample_fmt = AV_SAMPLE_FMT_S16;  
+//     pCodecCtx->sample_rate= 44100;  
+//     pCodecCtx->channel_layout=AV_CH_LAYOUT_STEREO;  
+//     pCodecCtx->channels = av_get_channel_layout_nb_channels(pCodecCtx->channel_layout);  
+//     pCodecCtx->bit_rate = 64000;  
+ 
+// 		auto video_stream = avformat_new_stream( av_format_file, 0 ) ;
+// 		if ( video_stream == nullptr )
+// 		{
+// 			throw -1 ;
+// 		}
+// 		
+// 		Cw2FFmpegAVCodecContextOpen encoder_video = video_stream->codec ;
+// 		encoder_video->codec_id = AV_CODEC_ID_H264 ;
+// 		encoder_video->codec_type = AVMEDIA_TYPE_VIDEO ;
+// 		encoder_video->pix_fmt = sws_cam1.m_dst.pix_fmt ;
+// 		encoder_video->width = sws_cam1.m_dst.width ;
+// 		encoder_video->height = sws_cam1.m_dst.height ;
+// 		encoder_video->time_base.den = 30 ;
+// 		encoder_video->time_base.num = 1 ;
+// 		encoder_video->bit_rate = 900000 ;
+// 		encoder_video->gop_size = 12 ;
+// 		encoder_video->me_range = 16 ;
+// 		encoder_video->max_qdiff = 4 ;
+// 		encoder_video->qcompress = 0.6f ;
+// 		encoder_video->qmin = 10 ;
+// 		encoder_video->qmax = 51 ;
+// 		encoder_video->max_b_frames = 3 ;
+// 		encoder_video->flags |= CODEC_FLAG_GLOBAL_HEADER ;
+// 
+// 		video_stream->time_base.den = 30 ;
+// 		video_stream->time_base.num = 1 ;
+// 		
+// 		Cw2FFmpegAVDictionary enc_options ;
+// 		if ( encoder_video->codec_id == AV_CODEC_ID_H264 )
+// 		{
+// 			av_dict_set( enc_options, "preset", "ultrafast", 0 ) ;
+// 			av_dict_set( enc_options, "tune", "zerolatency", 0 ) ;
+// 		}
+// 
+// 		if ( avcodec_open2( encoder_video, avcodec_find_encoder( encoder_video->codec_id ), enc_options ) != 0 )
+// 		{
+// 			throw -1 ;
+// 		}
+// 
+		audio_stream->time_base = encoder_audio->time_base ;
 
 		Cw2FFmpegAVIOAuto io_file ;
 		io_file.InitIO( av_format_file, output ) ;
@@ -311,8 +348,6 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 			do
 			{
-				auto video_stream_index = (int)decoder_cam1->opaque ;
-				auto audio_stream_index = (int)decoder_audio->opaque ;
 				int got_frame = 0 ;
 				auto ret = decode_video_packet(
 					decoder_cam1,
@@ -323,6 +358,49 @@ int _tmain( int argc, _TCHAR* argv[] )
 				if ( ret < 0 )
 				{
 					break ;
+				}
+
+				if ( got_frame )
+				{
+					byte* start_audio = frame_audio->extended_data[ 0 ] ;
+					const int start_nbs = frame_audio->nb_samples ;
+					int nbs = start_nbs ;
+
+					while ( nbs > 0 )
+					{
+						int nbnow = 0 ;
+						if ( nbs > encoder_audio->frame_size )
+						{
+							nbnow = encoder_audio->frame_size ;
+						}
+
+						else
+						{
+							nbnow = nbs ;
+						}
+
+						frame_audio->extended_data[ 0 ] = start_audio + ( nbs - start_nbs ) ;
+						frame_audio->nb_samples = nbnow ;
+						frame_audio->data[ 0 ] = frame_audio->extended_data[ 0 ] ;
+
+						AVPacket enc_pkt ;
+						av_init_packet( &enc_pkt ) ;
+						enc_pkt.data = nullptr ;
+						enc_pkt.size = 0 ;
+
+						int enc_ok = 0 ;
+						avcodec_encode_audio2( encoder_audio, &enc_pkt, frame_audio, &enc_ok ) ;
+						if ( enc_ok )
+						{
+							enc_pkt.stream_index = 0 ;
+							enc_pkt.pts = frame_audio->pkt_dts ;
+							io_file.WritePacket( enc_pkt ) ;
+						}
+
+						nbs -= nbnow ;
+
+						av_free_packet( &enc_pkt ) ;
+					}
 				}
 
 // 				if ( got_frame )
@@ -373,7 +451,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 			if ( tw.TickNow() > 20.0f )
 			{
-				//break ;
+				break ;
 			}
 		}
 		
