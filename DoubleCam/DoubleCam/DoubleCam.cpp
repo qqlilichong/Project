@@ -54,11 +54,11 @@ int _tmain( int argc, _TCHAR* argv[] )
 {
 	WSL2_FFmpegInit() ;
 
-	if ( false )
+	if ( true )
 	{
 		const char* output_file = "test.mp4" ;
-		const int video_width = 640 ;
-		const int video_height = 480 ;
+		const int video_width = 352 ;
+		const int video_height = 288 ;
 
 		const int pad_width = video_width ;
 		const int pad_height = video_height * 2 ;
@@ -66,7 +66,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 		RECT rcViewA = { 0, 0, pad_width, pad_height / 2 } ;
 		RECT rcViewB = { 0, pad_height / 2, pad_width, pad_height } ;
 
-		HWND hViewA = (HWND)0x002A0310 ;
+		HWND hViewA = (HWND)0x004B080C ;
 		HWND hViewB = (HWND)0x002204F2 ;
 		
 		Cw2D3D9 d3d9 ;
@@ -94,7 +94,6 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 		Cw2OpenCam cam1 ;
 		cam1.AddSink( &dw1 ) ;
-//		if ( cam1.OpenCam( "audio=麦克风 (Realtek High Definition Au", video_width, video_height ) == 0 )
 		if ( cam1.OpenCam( "@device_pnp_\\\\?\\usb#vid_0ac8&pid_332d&mi_00#7&3a816f4f&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global", video_width, video_height ) == 0 )
 		{
 			pad.AddViewRect( rcViewA ) ;
@@ -107,16 +106,58 @@ int _tmain( int argc, _TCHAR* argv[] )
 			pad.AddViewRect( rcViewB ) ;
 		}
 
+		Cw2OpenAudioCapture audiocap ;
+		if ( audiocap.OpenAudioCapture( "麦克风 (Realtek High Definition Au" ) == 0 )
+		{
+			audiocap.AddSink( &pad ) ;
+		}
+
 		system("pause");
 
 		shared_ptr< Cw2FileEncoder > file_encoder_ptr ;
-
+		
 		if ( !file_encoder_ptr )
 		{
-			file_encoder_ptr.reset( new Cw2FileEncoder ) ;
-			if ( file_encoder_ptr->Init( output_file, pad_width, pad_height ) == 0 )
+			try
 			{
-				pad.AddSink( &(*file_encoder_ptr) ) ;
+				file_encoder_ptr.reset( new Cw2FileEncoder ) ;
+				if ( !file_encoder_ptr )
+				{
+					throw -1 ;
+				}
+
+				if ( file_encoder_ptr->OpenFile( output_file ) != 0 )
+				{
+					throw -1 ;
+				}
+				
+				map< string, string > video_options ;
+				video_options[ "preset" ] = "ultrafast" ;
+				video_options[ "tune" ] = "zerolatency" ;
+				if ( file_encoder_ptr->AddVideoStream( pad_width, pad_height, 800000, &video_options ) != 0 )
+				{
+					throw -1 ;
+				}
+
+				if ( file_encoder_ptr->AddAudioStream( audiocap.GetAudioDecoder(), 96000, nullptr ) != 0 )
+				{
+					throw -1 ;
+				}
+
+				if ( file_encoder_ptr->OpenStreamIO( output_file ) != 0 )
+				{
+					throw -1 ;
+				}
+
+				throw 0 ;
+			}
+
+			catch ( int ec )
+			{
+				if ( ec == 0 )
+				{
+					pad.AddSink( &(*file_encoder_ptr) ) ;
+				}
 			}
 		}
 
@@ -124,19 +165,18 @@ int _tmain( int argc, _TCHAR* argv[] )
 
 		{
 			pad.RemoveSink( &(*file_encoder_ptr) ) ;
-			file_encoder_ptr->Uninit() ;
 			file_encoder_ptr.reset() ;
 		}
 
 		system("pause");
-
+		
+		audiocap.CloseAudioCapture() ;
 		cam2.CloseCam() ;
 		cam1.CloseCam() ;
-
+		
 		return 0 ;
 	}
-
-
+	
 	HWND wnd_cam1 = (HWND)0x000602C6 ;
 	const char* output = "test.aac" ;
 
@@ -164,7 +204,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 // 		char* audio_id = dup_wchar_to_utf8( L"video=@device_pnp_\\\\?\\usb#vid_0ac8&pid_332d&mi_00#7&3a816f4f&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global"
 // 			L":audio=麦克风 (Realtek High Definition Au" ) ;
 
-		char* audio_id = dup_wchar_to_utf8( L"audio=FrontMic (Realtek High Definition Audio)" ) ;
+		char* audio_id = dup_wchar_to_utf8( L"audio=麦克风 (Realtek High Definition Au" ) ;
 		
 		if ( avformat_open_input( av_format_cam1, audio_id, if_dshow_ptr, nullptr ) != 0 )
 		{
@@ -250,21 +290,25 @@ int _tmain( int argc, _TCHAR* argv[] )
 			throw -1 ;
  		}
 
-		auto audio_stream = avformat_new_stream( av_format_file, 0 ) ;
+		auto codec_aac = avcodec_find_encoder( AV_CODEC_ID_AAC ) ;
+
+		auto audio_stream = avformat_new_stream( av_format_file, codec_aac ) ;
 		if ( audio_stream == nullptr )
 		{
 			throw -1 ;
 		}
 		
 		Cw2FFmpegAVCodecContextOpen encoder_audio = audio_stream->codec ;
-		encoder_audio->codec_id = AV_CODEC_ID_AAC ;
-		encoder_audio->codec_type = AVMEDIA_TYPE_AUDIO ;
-		encoder_audio->sample_fmt = decoder_audio->sample_fmt ;
-		encoder_audio->sample_rate = decoder_audio->sample_rate ;
 		encoder_audio->channels = decoder_audio->channels ;
 		encoder_audio->channel_layout = av_get_default_channel_layout( encoder_audio->channels ) ;
-		encoder_audio->bit_rate = 64000 ;
-		encoder_audio->time_base = decoder_audio->time_base ;
+		encoder_audio->sample_rate = decoder_audio->sample_rate ;
+		encoder_audio->sample_fmt = decoder_audio->sample_fmt ;
+		encoder_audio->bit_rate = 96000 ;
+		encoder_audio->flags |= AV_CODEC_FLAG_GLOBAL_HEADER ;
+
+		audio_stream->time_base.num = 1 ;
+		audio_stream->time_base.den = encoder_audio->sample_rate ;
+
 		if ( avcodec_open2( encoder_audio, avcodec_find_encoder( encoder_audio->codec_id ), nullptr ) != 0 )
 		{
 			throw -1 ;
@@ -324,7 +368,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 // 			throw -1 ;
 // 		}
 // 
-		audio_stream->time_base = encoder_audio->time_base ;
+		//audio_stream->time_base = encoder_audio->time_base ;
 
 		Cw2FFmpegAVIOAuto io_file ;
 		io_file.InitIO( av_format_file, output ) ;
@@ -332,6 +376,8 @@ int _tmain( int argc, _TCHAR* argv[] )
 		{
 			throw -1 ;
 		}
+		
+		AVAudioFifo* fifo_audio = av_audio_fifo_alloc( encoder_audio->sample_fmt, encoder_audio->channels, 1 ) ;
 
 		//////////////////////////////////////////////////////////////////////////
 
@@ -360,48 +406,50 @@ int _tmain( int argc, _TCHAR* argv[] )
 					break ;
 				}
 
-				if ( got_frame )
+				if ( true )
 				{
-					byte* start_audio = frame_audio->extended_data[ 0 ] ;
-					const int start_nbs = frame_audio->nb_samples ;
-					int nbs = start_nbs ;
-
-					while ( nbs > 0 )
+					if ( av_audio_fifo_realloc( fifo_audio, frame_audio->nb_samples ) < 0 )
 					{
-						int nbnow = 0 ;
-						if ( nbs > encoder_audio->frame_size )
-						{
-							nbnow = encoder_audio->frame_size ;
-						}
+						break ;
+					}
 
-						else
-						{
-							nbnow = nbs ;
-						}
+					if ( av_audio_fifo_write( fifo_audio, (void**)frame_audio->data, frame_audio->nb_samples ) != frame_audio->nb_samples )
+					{
+						break ;
+					}
+					
+					while ( av_audio_fifo_size( fifo_audio ) >= encoder_audio->frame_size )
+					{
+						Cw2FFmpegAVFrame layout_frame_audio = av_frame_alloc() ;
+						layout_frame_audio->nb_samples = encoder_audio->frame_size ;
+						layout_frame_audio->channel_layout = encoder_audio->channel_layout ;
+						layout_frame_audio->format = encoder_audio->sample_fmt ;
+						layout_frame_audio->sample_rate = encoder_audio->sample_rate ;
+						av_frame_get_buffer( layout_frame_audio, 0 ) ;
 
-						frame_audio->extended_data[ 0 ] = start_audio + ( nbs - start_nbs ) ;
-						frame_audio->nb_samples = nbnow ;
-						frame_audio->data[ 0 ] = frame_audio->extended_data[ 0 ] ;
+						if ( av_audio_fifo_read( fifo_audio, (void**)layout_frame_audio->data, layout_frame_audio->nb_samples ) != layout_frame_audio->nb_samples )
+						{
+							int bad = 0 ;
+						}
 
 						AVPacket enc_pkt ;
 						av_init_packet( &enc_pkt ) ;
 						enc_pkt.data = nullptr ;
 						enc_pkt.size = 0 ;
 
+						layout_frame_audio->pts = pts ;
+						pts += layout_frame_audio->nb_samples ;
+							
 						int enc_ok = 0 ;
-						avcodec_encode_audio2( encoder_audio, &enc_pkt, frame_audio, &enc_ok ) ;
+						avcodec_encode_audio2( encoder_audio, &enc_pkt, layout_frame_audio, &enc_ok ) ;
 						if ( enc_ok )
 						{
 							enc_pkt.stream_index = 0 ;
-							enc_pkt.pts = frame_audio->pkt_dts ;
 							io_file.WritePacket( enc_pkt ) ;
 						}
-
-						nbs -= nbnow ;
-
+							
 						av_free_packet( &enc_pkt ) ;
 					}
-				}
 
 // 				if ( got_frame )
 // 				{
@@ -441,6 +489,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 // 						}
 // 					}
 // 				}
+				}
 
 				pkt.data += ret ;
 				pkt.size -= ret ;
@@ -455,6 +504,7 @@ int _tmain( int argc, _TCHAR* argv[] )
 			}
 		}
 		
+		av_audio_fifo_free( fifo_audio ) ;
 		int end = 0 ;
 	}
 
