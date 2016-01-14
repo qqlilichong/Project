@@ -92,22 +92,26 @@ int _tmain( int argc, _TCHAR* argv[] )
 			return 0 ;
 		}
 
+		map< string, string > cam_options ;
+		cam_options[ "video_size" ] = WSL2_String_FormatA( "%dx%d", video_width, video_height ) ;
+		cam_options[ "pixel_format" ] = "yuyv422" ;
+
 		Cw2OpenCam cam1 ;
 		cam1.AddSink( &dw1 ) ;
-		if ( cam1.OpenCam( "@device_pnp_\\\\?\\usb#vid_0ac8&pid_332d&mi_00#7&3a816f4f&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global", video_width, video_height ) == 0 )
+		if ( cam1.OpenCam( "@device_pnp_\\\\?\\usb#vid_0ac8&pid_332d&mi_00#7&3a816f4f&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global", &cam_options ) == 0 )
 		{
 			pad.AddViewRect( rcViewA ) ;
 		}
 
 		Cw2OpenCam cam2 ;
 		cam2.AddSink( &dw2 ) ;
-		if ( cam2.OpenCam( "USB2.0 PC CAMERA", video_width, video_height ) == 0 )
+		if ( cam2.OpenCam( "USB2.0 PC CAMERA", &cam_options ) == 0 )
 		{
 			pad.AddViewRect( rcViewB ) ;
 		}
 
 		Cw2OpenAudioCapture audiocap ;
-		if ( audiocap.OpenAudioCapture( "麦克风 (Realtek High Definition Au" ) == 0 )
+		if ( audiocap.OpenAudioCapture( "麦克风 (Realtek High Definition Au", nullptr ) == 0 )
 		{
 			audiocap.AddSink( &pad ) ;
 		}
