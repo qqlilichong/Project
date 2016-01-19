@@ -50,6 +50,15 @@ static char *dup_wchar_to_utf8(wchar_t *w)
 	return s;
 }
 
+class Cw2UserOSD : public IW2_FFUSERSINK
+{
+public:
+	virtual int OnDrawPadDC( HDC dc, D3DSURFACE_DESC desc )
+	{
+		return 0 ;
+	}
+};
+
 int _tmain( int argc, _TCHAR* argv[] )
 {
 	WSL2_FFmpegInit() ;
@@ -66,8 +75,8 @@ int _tmain( int argc, _TCHAR* argv[] )
 		RECT rcViewA = { 0, 0, pad_width, pad_height / 2 } ;
 		RECT rcViewB = { 0, pad_height / 2, pad_width, pad_height } ;
 
-		HWND hViewA = (HWND)0x004B080C ;
-		HWND hViewB = (HWND)0x002204F2 ;
+		HWND hViewA = (HWND)0x0029033E ;
+		HWND hViewB = (HWND)0x0029033E ;
 		
 		Cw2D3D9 d3d9 ;
 		Cw2D3D9Device d3dev ;
@@ -75,8 +84,11 @@ int _tmain( int argc, _TCHAR* argv[] )
 		{
 			return 0 ;
 		}
+		
+		static Cw2UserOSD osd ;
 
 		Cw2DrawPad pad ;
+		pad.SetUserSink( &osd ) ;
 
 		Cw2DrawWnd dw1 ;
 		dw1.AddSink( &pad ) ;
